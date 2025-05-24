@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro de Usuários - Condy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#1F2937'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+            <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">
+                Cadastro de Usuários - Condy
+            </h1>
+
+            <!-- Seletor de Tipo de Usuário -->
+            <div class="mb-8">
+                <label class="block text-sm font-medium text-gray-700 mb-3">
+                    Selecione o tipo de usuário:
+                </label>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button type="button" 
+                            onclick="selectUserType('PRESTADOR')" 
+                            id="btn-PRESTADOR"
+                            class="user-type-btn p-4 border-2 border-gray-300 rounded-lg text-center hover:border-primary hover:bg-blue-50 transition-colors">
+                        <div class="text-xl mb-2">🔧</div>
+                        <div class="font-semibold">Prestador de Serviço</div>
+                        <div class="text-sm text-gray-600">Empresas e profissionais</div>
+                    </button>
+                    
+                    <button type="button" 
+                            onclick="selectUserType('SINDICO')" 
+                            id="btn-SINDICO"
+                            class="user-type-btn p-4 border-2 border-gray-300 rounded-lg text-center hover:border-primary hover:bg-blue-50 transition-colors">
+                        <div class="text-xl mb-2">🏢</div>
+                        <div class="font-semibold">Síndico</div>
+                        <div class="text-sm text-gray-600">Representante do condomínio</div>
+                    </button>
+                    
+                    <button type="button" 
+                            onclick="selectUserType('ADMIN_IMOVEIS')" 
+                            id="btn-ADMIN_IMOVEIS"
+                            class="user-type-btn p-4 border-2 border-gray-300 rounded-lg text-center hover:border-primary hover:bg-blue-50 transition-colors">
+                        <div class="text-xl mb-2">🏘️</div>
+                        <div class="font-semibold">Administrador</div>
+                        <div class="text-sm text-gray-600">Administradora de imóveis</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Formulário Principal -->
+            <form id="userForm" class="space-y-6" onsubmit="submitForm(event)" style="display: none;">
+                <!-- Campos Básicos (comuns a todos) -->
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Dados Básicos</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome Completo *</label>
+                            <input type="text" name="name" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">CPF/CNPJ *</label>
+                            <input type="text" name="cpf_cnpj" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                   placeholder="000.000.000-00 ou 00.000.000/0000-00">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp *</label>
+                            <input type="tel" name="whatsapp" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                   placeholder="(11) 99999-9999">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">E-mail *</label>
+                            <input type="email" name="email" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Senha *</label>
+                            <input type="password" name="password" required minlength="8"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Confirmar Senha *</label>
+                            <input type="password" name="password_confirmation" required minlength="8"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Campos Específicos para Prestador -->
+                <div id="prestador-fields" class="space-y-4" style="display: none;">
+                    <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Dados do Prestador</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome Fantasia</label>
+                            <input type="text" name="nome_fantasia" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Razão Social</label>
+                            <input type="text" name="razao_social" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">CEP</label>
+                            <input type="text" name="cep" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                   placeholder="00000-000">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+                            <input type="text" name="cidade" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
+                            <input type="date" name="data_nascimento" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
+                        <textarea name="endereco" rows="2" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Regime Tributário</label>
+                            <select name="regime_tributario" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="">Selecione...</option>
+                                <option value="MEI">MEI</option>
+                                <option value="SIMPLES_NACIONAL">Simples Nacional</option>
+                                <option value="LUCRO_PRESUMIDO">Lucro Presumido</option>
+                                <option value="LUCRO_REAL">Lucro Real</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Segmentos de Atuação</label>
+                            <input type="text" name="segmentos_input" placeholder="Digite os segmentos separados por vírgula"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Campos Específicos para Síndico -->
+                <div id="sindico-fields" class="space-y-4" style="display: none;">
+                    <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Dados do Síndico</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Início do Mandato</label>
+                            <input type="date" name="periodo_mandato_inicio" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fim do Mandato</label>
+                            <input type="date" name="periodo_mandato_fim" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Informações de Subsíndico</label>
+                        <textarea name="subsyndic_info_text" rows="3" placeholder="Informações sobre subsíndicos (opcional)"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                    </div>
+                </div>
+
+                <!-- Campos Específicos para Administrador -->
+                <div id="admin-fields" class="space-y-4" style="display: none;">
+                    <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Dados da Administradora</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Razão Social da Empresa</label>
+                            <input type="text" name="razao_social_empresa" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome Fantasia da Empresa</label>
+                            <input type="text" name="nome_fantasia_empresa" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Responsável</label>
+                        <input type="text" name="responsavel_empresa_nome" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">CEP da Empresa</label>
+                            <input type="text" name="cep_empresa" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                   placeholder="00000-000">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Endereço da Empresa</label>
+                            <input type="text" name="endereco_empresa" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Informações do Contrato de Prestação de Serviços</label>
+                        <textarea name="contrato_info_text" rows="3" placeholder="Detalhes sobre o contrato (opcional)"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                    </div>
+                </div>
+
+                <!-- Botão de Submit -->
+                <div class="pt-6">
+                    <button type="submit" id="submitBtn"
+                            class="w-full bg-primary text-white py-3 px-6 rounded-md font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+                        Cadastrar Usuário
+                    </button>
+                </div>
+            </form>
+
+            <!-- Área de Mensagens -->
+            <div id="messageArea" class="mt-6"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedUserType = '';
+        const API_BASE_URL = 'http://localhost/api'; // Ajuste conforme necessário
+
+        function selectUserType(type) {
+            selectedUserType = type;
+            
+            // Atualizar visual dos botões
+            document.querySelectorAll('.user-type-btn').forEach(btn => {
+                btn.classList.remove('border-primary', 'bg-blue-50');
+                btn.classList.add('border-gray-300');
+            });
+            
+            document.getElementById(`btn-${type}`).classList.remove('border-gray-300');
+            document.getElementById(`btn-${type}`).classList.add('border-primary', 'bg-blue-50');
+            
+            // Mostrar formulário
+            document.getElementById('userForm').style.display = 'block';
+            
+            // Esconder todos os campos específicos
+            document.getElementById('prestador-fields').style.display = 'none';
+            document.getElementById('sindico-fields').style.display = 'none';
+            document.getElementById('admin-fields').style.display = 'none';
+            
+            // Mostrar campos específicos do tipo selecionado
+            if (type === 'PRESTADOR') {
+                document.getElementById('prestador-fields').style.display = 'block';
+            } else if (type === 'SINDICO') {
+                document.getElementById('sindico-fields').style.display = 'block';
+            } else if (type === 'ADMIN_IMOVEIS') {
+                document.getElementById('admin-fields').style.display = 'block';
+            }
+            
+            // Limpar mensagens
+            document.getElementById('messageArea').innerHTML = '';
+        }
+
+        function showMessage(message, type = 'info') {
+            const messageArea = document.getElementById('messageArea');
+            const colors = {
+                success: 'bg-green-100 border-green-400 text-green-700',
+                error: 'bg-red-100 border-red-400 text-red-700',
+                info: 'bg-blue-100 border-blue-400 text-blue-700'
+            };
+            
+            messageArea.innerHTML = `
+                <div class="border ${colors[type]} px-4 py-3 rounded relative">
+                    <span class="block sm:inline">${message}</span>
+                </div>
+            `;
+        }
+
+        async function submitForm(event) {
+            event.preventDefault();
+            
+            if (!selectedUserType) {
+                showMessage('Por favor, selecione um tipo de usuário.', 'error');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Cadastrando...';
+            
+            try {
+                const formData = new FormData(event.target);
+                const data = {
+                    name: formData.get('name'),
+                    cpf_cnpj: formData.get('cpf_cnpj'),
+                    whatsapp: formData.get('whatsapp'),
+                    email: formData.get('email'),
+                    password: formData.get('password'),
+                    password_confirmation: formData.get('password_confirmation'),
+                    user_type: selectedUserType
+                };
+                
+                // Adicionar campos específicos baseado no tipo
+                if (selectedUserType === 'PRESTADOR') {
+                    data.nome_fantasia = formData.get('nome_fantasia');
+                    data.razao_social = formData.get('razao_social');
+                    data.cep = formData.get('cep');
+                    data.endereco = formData.get('endereco');
+                    data.cidade = formData.get('cidade');
+                    data.regime_tributario = formData.get('regime_tributario');
+                    data.data_nascimento = formData.get('data_nascimento');
+                    
+                    // Processar segmentos de atuação
+                    const segmentosInput = formData.get('segmentos_input');
+                    if (segmentosInput) {
+                        data.segmentos_atuacao = segmentosInput.split(',').map(s => s.trim()).filter(s => s);
+                    }
+                    
+                } else if (selectedUserType === 'SINDICO') {
+                    data.periodo_mandato_inicio = formData.get('periodo_mandato_inicio');
+                    data.periodo_mandato_fim = formData.get('periodo_mandato_fim');
+                    
+                    // Processar informações de subsíndico
+                    const subsyndicText = formData.get('subsyndic_info_text');
+                    if (subsyndicText) {
+                        data.subsyndic_info = { observacoes: subsyndicText };
+                    }
+                    
+                } else if (selectedUserType === 'ADMIN_IMOVEIS') {
+                    data.razao_social_empresa = formData.get('razao_social_empresa');
+                    data.nome_fantasia_empresa = formData.get('nome_fantasia_empresa');
+                    data.responsavel_empresa_nome = formData.get('responsavel_empresa_nome');
+                    data.cep_empresa = formData.get('cep_empresa');
+                    data.endereco_empresa = formData.get('endereco_empresa');
+                    
+                    // Processar informações do contrato
+                    const contratoText = formData.get('contrato_info_text');
+                    if (contratoText) {
+                        data.contrato_prestacao_servico_info = { observacoes: contratoText };
+                    }
+                }
+                
+                const response = await fetch(`${API_BASE_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('Usuário cadastrado com sucesso!', 'success');
+                    event.target.reset();
+                    document.getElementById('userForm').style.display = 'none';
+                    selectedUserType = '';
+                    document.querySelectorAll('.user-type-btn').forEach(btn => {
+                        btn.classList.remove('border-primary', 'bg-blue-50');
+                        btn.classList.add('border-gray-300');
+                    });
+                } else {
+                    let errorMessage = result.message || 'Erro ao cadastrar usuário';
+                    if (result.errors && Array.isArray(result.errors)) {
+                        errorMessage += ': ' + result.errors.join(', ');
+                    }
+                    showMessage(errorMessage, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                showMessage('Erro de conexão. Verifique se a API está funcionando.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Cadastrar Usuário';
+            }
+        }
+    </script>
+</body>
+</html>

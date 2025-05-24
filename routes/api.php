@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 
+
 // Rotas de autenticação públicas
 Route::prefix('auth')->group(function () {
     // Registro e login
@@ -10,8 +11,8 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 
     // Verificações para formulários
-    Route::post('/check-email', [AuthController::class, 'checkEmail']);
-    Route::post('/check-cpf-cnpj', [AuthController::class, 'checkCpfCnpj']);
+    Route::get('/check-email', [AuthController::class, 'checkEmail']);
+    Route::get('/check-cpf-cnpj', [AuthController::class, 'checkCpfCnpj']);
 });
 
 // Rotas protegidas por autenticação

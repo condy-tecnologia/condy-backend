@@ -15,13 +15,11 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-class AuthController extends Controller
-{
+class AuthController extends Controller {
     /**
      * Registrar novo usuário com perfil específico
      */
-    public function register(Request $request): JsonResponse
-    {
+    public function register(Request $request): JsonResponse {
         try {
             // Validação básica comum a todos os tipos
             $baseRules = [
@@ -29,7 +27,7 @@ class AuthController extends Controller
                 'cpf_cnpj' => 'required|string|unique:users,cpf_cnpj',
                 'whatsapp' => 'required|string|unique:users,whatsapp',
                 'email' => 'required|string|email|max:255|unique:users,email',
-                'password' => 'required|string|min:8|confirmed',
+                'password' => 'required|string|min:8',
                 'user_type' => 'required|in:PRESTADOR,SINDICO,ADMIN_IMOVEIS'
             ];
 
@@ -92,7 +90,7 @@ class AuthController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Dados inválidos',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors()->all()
                 ], 422);
             }
 
@@ -206,7 +204,7 @@ class AuthController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Dados inválidos',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors()->all()
                 ], 422);
             }
 
@@ -427,8 +425,7 @@ class AuthController extends Controller
     /**
      * Verificar se email existe
      */
-    public function checkEmail(Request $request): JsonResponse
-    {
+    public function checkEmail(Request $request): JsonResponse {
         $validator = Validator::make($request->all(), [
             'email' => 'required|email'
         ]);
@@ -451,8 +448,7 @@ class AuthController extends Controller
     /**
      * Verificar se CPF/CNPJ existe
      */
-    public function checkCpfCnpj(Request $request): JsonResponse
-    {
+    public function checkCpfCnpj(Request $request): JsonResponse {
         $validator = Validator::make($request->all(), [
             'cpf_cnpj' => 'required|string'
         ]);
