@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # API Laravel
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: condy-api
+    volumes:
+      - .:/var/www
+      - ./docker/api/php.ini:/usr/local/etc/php/conf.d/local.ini
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=/var/www/database/database.sqlite
+    depends_on:
+      - database
+    networks:
+      - condy-network
+
+  # Nginx
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    container_name: condy-nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www
+    depends_on:
+      - api
+    networks:
+      - condy-network
+
+  # Frontend Vue (preparado para implementação futura)
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: condy-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - nginx
+    networks:
+      - condy-network
+    profiles:
+      - frontend  # Só roda quando especificado
+
+  # Database SQLite (para desenvolvimento)
+  database:
+    image: alpine:latest
+    container_name: condy-database
+    volumes:
+      - ./database:/database
+    command: ["tail", "-f", "/dev/null"]  # Manter container ativo
+    networks:
+      - condy-network
+
+  # Redis (para cache e sessões em produção)
+  redis:
+    image: redis:alpine
+    container_name: condy-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - condy-network
+    profiles:
+      - production
+
+networks:
+  condy-network:
+    driver: bridge
+
+volumes:
+  redis_data: 

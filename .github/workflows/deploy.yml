@@ -1,0 +1,226 @@
+name: 🚀 Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Run Tests Before Deploy
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐘 Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: 8.2
+        extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv
+
+    - name: 📦 Install Composer dependencies
+      run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+    - name: 📋 Copy environment file
+      run: cp .env.example .env
+
+    - name: 🔑 Generate application key
+      run: php artisan key:generate
+
+    - name: 🗄️ Create SQLite database
+      run: touch database/database.sqlite
+
+    - name: 🚀 Run database migrations
+      run: php artisan migrate --force
+
+    - name: 🧪 Run tests
+      run: vendor/bin/phpunit
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    name: Build and Push Docker Images
+
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      api-image: ${{ steps.meta-api.outputs.tags }}
+      nginx-image: ${{ steps.meta-nginx.outputs.tags }}
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐳 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 🔑 Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 📝 Extract API metadata
+      id: meta-api
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: 📝 Extract Nginx metadata
+      id: meta-nginx
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-nginx
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: 🔨 Build and push API image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: docker/api/Dockerfile
+        push: true
+        tags: ${{ steps.meta-api.outputs.tags }}
+        labels: ${{ steps.meta-api.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: 🔨 Build and push Nginx image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: docker/nginx/Dockerfile
+        push: true
+        tags: ${{ steps.meta-nginx.outputs.tags }}
+        labels: ${{ steps.meta-nginx.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    environment: production
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🗂️ Create deployment files
+      run: |
+        mkdir -p deploy
+        cp docker-compose.prod.yml deploy/
+        cp -r scripts deploy/
+        
+    - name: 📦 Create deployment package
+      run: |
+        tar -czf deploy.tar.gz deploy/
+        
+    - name: 📤 Upload deployment package
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-package
+        path: deploy.tar.gz
+
+    - name: 🚀 Deploy to server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USER }}
+        key: ${{ secrets.PRODUCTION_SSH_KEY }}
+        port: ${{ secrets.PRODUCTION_PORT }}
+        script: |
+          # Criar diretório se não existir
+          mkdir -p /opt/condy
+          cd /opt/condy
+          
+          # Baixar e extrair deployment package
+          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3.raw" \
+               -L https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${{ steps.upload.outputs.artifact-id }}/zip \
+               -o deploy.zip
+          
+          unzip -o deploy.zip
+          tar -xzf deploy.tar.gz
+          
+          # Fazer backup do .env atual se existir
+          if [ -f .env ]; then
+            cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+          fi
+          
+          # Login no registry
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Parar containers atuais
+          docker compose -f docker-compose.prod.yml down || true
+          
+          # Puxar novas imagens
+          docker compose -f deploy/docker-compose.prod.yml pull
+          
+          # Iniciar novos containers
+          docker compose -f deploy/docker-compose.prod.yml up -d
+          
+          # Aguardar e verificar health
+          sleep 30
+          docker compose -f deploy/docker-compose.prod.yml ps
+          
+          # Cleanup de imagens antigas
+          docker image prune -af
+          
+          echo "✅ Deploy completed successfully!"
+
+  notify:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    name: Notify Deploy Status
+    if: always()
+
+    steps:
+    - name: 📢 Notify Slack on Success
+      if: needs.deploy.result == 'success'
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        channel: '#deployments'
+        text: |
+          🚀 *Condy API* deployed successfully to production!
+          
+          *Branch:* `${{ github.ref_name }}`
+          *Commit:* `${{ github.sha }}`
+          *Author:* ${{ github.actor }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: 📢 Notify Slack on Failure
+      if: needs.deploy.result == 'failure'
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        channel: '#deployments'
+        text: |
+          ❌ *Condy API* deployment failed!
+          
+          *Branch:* `${{ github.ref_name }}`
+          *Commit:* `${{ github.sha }}`
+          *Author:* ${{ github.actor }}
+          
+          Please check the deployment logs.
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 

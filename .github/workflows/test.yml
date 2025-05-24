@@ -1,0 +1,150 @@
+name: 🧪 Tests
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+env:
+  CACHE_DRIVER: array
+  SESSION_DRIVER: array
+  QUEUE_DRIVER: sync
+  DB_CONNECTION: sqlite
+  DB_DATABASE: ":memory:"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }}
+
+    strategy:
+      matrix:
+        php: [8.2, 8.3]
+        laravel: [11.*]
+        include:
+          - laravel: 11.*
+            testbench: 9.*
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐘 Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ matrix.php }}
+        extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv
+        coverage: xdebug
+
+    - name: 📦 Get Composer Cache Directory
+      id: composer-cache
+      run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+    - name: 🗂️ Cache Composer dependencies
+      uses: actions/cache@v3
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+        restore-keys: ${{ runner.os }}-composer-
+
+    - name: 📦 Install Composer dependencies
+      run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+    - name: 📋 Copy environment file
+      run: cp .env.example .env
+
+    - name: 🔑 Generate application key
+      run: php artisan key:generate
+
+    - name: 🗄️ Create SQLite database
+      run: touch database/database.sqlite
+
+    - name: 🚀 Run database migrations
+      run: php artisan migrate --force
+
+    - name: 🧪 Run PHPUnit tests
+      run: vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+
+    - name: 📊 Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  code-quality:
+    runs-on: ubuntu-latest
+    name: Code Quality
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐘 Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: 8.2
+        extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv
+
+    - name: 📦 Install Composer dependencies
+      run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+    - name: 🎨 Run Laravel Pint (Code Style)
+      run: ./vendor/bin/pint --test
+
+    - name: 🔍 Run PHPStan (Static Analysis)
+      run: ./vendor/bin/phpstan analyse --memory-limit=2G
+      continue-on-error: true
+
+  security:
+    runs-on: ubuntu-latest
+    name: Security Audit
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐘 Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: 8.2
+
+    - name: 🔒 Security audit
+      run: composer audit
+
+  build-test:
+    runs-on: ubuntu-latest
+    name: Docker Build Test
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐳 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 🔨 Build API Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: docker/api/Dockerfile
+        push: false
+        tags: condy-api:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: 🔨 Build Nginx Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: docker/nginx/Dockerfile
+        push: false
+        tags: condy-nginx:test
+
+    - name: 🧪 Test Docker containers
+      run: |
+        docker compose -f docker-compose.yml up -d --wait
+        sleep 10
+        curl -f http://localhost:8000/api/auth/check-email || exit 1
+        docker compose down 

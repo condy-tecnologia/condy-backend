@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # API Laravel para Produção
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: condy-api-prod
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_KEY=${APP_KEY}
+      - DB_CONNECTION=${DB_CONNECTION}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=redis
+      - REDIS_HOST=redis
+    depends_on:
+      - database
+      - redis
+    networks:
+      - condy-network
+    healthcheck:
+      test: ["CMD", "php", "artisan", "route:list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx para Produção
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    container_name: condy-nginx-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ssl:/etc/nginx/ssl  # Para certificados SSL
+    depends_on:
+      - api
+    networks:
+      - condy-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/up"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend Vue para Produção
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: condy-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - nginx
+    networks:
+      - condy-network
+    profiles:
+      - frontend
+
+  # Database MySQL/PostgreSQL para Produção
+  database:
+    image: mysql:8.0
+    container_name: condy-database-prod
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/backups:/backups
+    ports:
+      - "3306:3306"
+    networks:
+      - condy-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis para Produção
+  redis:
+    image: redis:alpine
+    container_name: condy-redis-prod
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - condy-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backup automático
+  backup:
+    image: mysql:8.0
+    container_name: condy-backup
+    restart: unless-stopped
+    volumes:
+      - ./database/backups:/backups
+      - ./scripts:/scripts
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+    depends_on:
+      - database
+    networks:
+      - condy-network
+    command: /scripts/backup.sh
+    profiles:
+      - backup
+
+networks:
+  condy-network:
+    driver: bridge
+
+volumes:
+  db_data:
+  redis_data: 
